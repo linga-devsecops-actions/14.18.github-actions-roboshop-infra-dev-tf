@@ -1,25 +1,28 @@
-resource "aws_ssm_parameter" "db_sg_id" {
-  name  = "/${var.project_name}/${var.environment}/db_sg_id" #This SG will store its SG id in SSM Parameter store.
+resource "aws_ssm_parameter" "mysql_sg_id" {
+  name  = "/${var.project_name}/${var.environment}/mysql_sg_id"
   type  = "String"
-  value =  module.db.sg_id
+  value = module.mysql_sg.id
 }
 resource "aws_ssm_parameter" "bastion_sg_id" {
-  name  = "/${var.project_name}/${var.environment}/bastion_sg_id"  #This SG will store its SG id in SSM Parameter store.
+  name  = "/${var.project_name}/${var.environment}/bastion_sg_id"
   type  = "String"
-  value =  module.bastion.sg_id
+  value = module.bastion_sg.id
 }
-resource "aws_ssm_parameter" "cluster_sg_id" {
-  name  = "/${var.project_name}/${var.environment}/cluster_sg_id"  #This SG will store its SG id in SSM Parameter store.
-  type  = "String"
-  value =  module.cluster.sg_id
-}
-resource "aws_ssm_parameter" "node_sg_id" {
-  name  = "/${var.project_name}/${var.environment}/node_sg_id"  #This SG will store its SG id in SSM Parameter store.
-  type  = "String"
-  value =  module.node.sg_id
-}
+
 resource "aws_ssm_parameter" "ingress_sg_id" {
-  name  = "/${var.project_name}/${var.environment}/ingress_sg_id"  #This SG will store its SG id in SSM Parameter store.
+  name  = "/${var.project_name}/${var.environment}/ingress_sg_id"
   type  = "String"
-  value =  module.ingress.sg_id
+  value = module.ingress_sg.id
+}
+
+resource "aws_ssm_parameter" "eks_control_plane_sg_id" {
+  name  = "/${var.project_name}/${var.environment}/eks_control_plane_sg_id"
+  type  = "String"
+  value = module.eks_control_plane_sg.id
+}
+
+resource "aws_ssm_parameter" "eks_node_sg_id" {
+  name  = "/${var.project_name}/${var.environment}/eks_node_sg_id"
+  type  = "String"
+  value = module.eks_node_sg.id
 }

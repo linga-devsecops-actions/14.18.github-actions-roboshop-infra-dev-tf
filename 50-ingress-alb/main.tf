@@ -38,7 +38,7 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
   default_action {
       type             = "forward"
-      target_group_arn = aws_lb_target_group.frontend.arn
+      target_group_arn = aws_lb_target_group.web.arn
     }
 }
 # resource "aws_lb_listener" "https" {
@@ -69,12 +69,12 @@ resource "aws_lb_listener" "https" {
   
   default_action {
       type             = "forward"
-      target_group_arn = aws_lb_target_group.frontend.arn
+      target_group_arn = aws_lb_target_group.web.arn
     }
 }
 
-resource "aws_lb_target_group" "frontend" {
-  name     ="${var.project_name}-${var.environment}-frontend"
+resource "aws_lb_target_group" "web" {
+  name     ="${var.project_name}-${var.environment}-web"
   port     = 8080
   protocol = "HTTP"
   target_type = "ip"
@@ -88,19 +88,19 @@ resource "aws_lb_target_group" "frontend" {
     matcher             ="200"
   }
 }
-resource "aws_lb_listener_rule" "frontend" {
+resource "aws_lb_listener_rule" "web" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 100 # less number will be first validated
 
   action {
     type             = "forward"
-    target_group_arn =  aws_lb_target_group.frontend.arn
+    target_group_arn =  aws_lb_target_group.web.arn
   }
 
   condition {
     host_header {
-      # expense-dev.daws78s.online  --> frontend pod
-      values =["expense-${var.environment}.${var.zone_name}"]
+      # expense-dev.daws78s.online  --> web pod
+      values =["roboshop-${var.environment}.${var.zone_name}"]
     }
   }
 }
@@ -113,7 +113,7 @@ module "records" {
 
   records = [
     {
-      name    = "expense-${var.environment}"
+      name    = "roboshop-${var.environment}"
       type    = "A"
       allow_overwrite = true
       alias = {

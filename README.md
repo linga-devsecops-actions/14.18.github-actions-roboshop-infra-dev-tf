@@ -1,5 +1,4 @@
 # How to delete unnecessary files: 
-
 ```
 for d in 00-vpc/ 10-sg/ 20-bastion/ 30-eks/ 40-acm/ 50-ingress-alb/ 60-ecr/ ; do
   echo "Removing from $d:"
@@ -9,8 +8,6 @@ for d in 00-vpc/ 10-sg/ 20-bastion/ 30-eks/ 40-acm/ 50-ingress-alb/ 60-ecr/ ; do
   echo "deleted files from $d"
 done
 ```
-
-
 # Infrastructure creation and deletion
 
 ```
@@ -27,6 +24,34 @@ for i in 00-vpc/ 10-sg/ 20-bastion/ 30-eks/ 40-acm/ 50-ingress-alb/ 60-ecr/; do 
 for i in 60-ecr/ 50-ingress-alb/ 40-acm/ 30-eks/ 20-bastion/ 10-sg/ 00-vpc/; do cd $i; terraform destroy -auto-approve; cd .. ; done 
 ```
 
+```
+14.18.github-actions-roboshop-infra-dev-tf
+14.19.github-actions-roboshop-self-hosted-runner-ec2-tf
+
+14.20.github-actions-roboshop-reusable-workflows
+
+14.21.github-actions-roboshop-mysql
+14.22.github-actions-roboshop-mongodb
+14.23.github-actions-roboshop-redis
+14.24.github-actions-roboshop-rabbitmq
+
+14.25.github-actions-roboshop-catalogue-ci
+14.26.github-actions-roboshop-catalogue-cd
+
+14.27.github-actions-roboshop-cart-ci
+14.28.github-actions-roboshop-cart-cd
+
+14.29.github-actions-roboshop-user-ci
+14.30.github-actions-roboshop-user-cd
+
+14.31.github-actions-roboshop-payment-ci
+14.32.github-actions-roboshop-payment-cd
+
+14.33.github-actions-roboshop-shipping-ci
+14.34.github-actions-roboshop-shipping-cd
+
+14.35.github-actions-roboshop-web
+```
 # Infrastructure
 
 ![alt text](eks-infra.svg)
@@ -54,9 +79,108 @@ Creating above infrastructure involves lot of steps, as maintained sequence we n
 * (Required). ECR. We need to create ECR repo to host the application images.
 * (Optional). CDN is optional. but good to have.
 
-### Admin activities
+# Github Runner actitvies:
 
-**Bastion**
+* We creating ec2 instance and attach it to github actions
+
+
+github.com/orgs/joindevops-actions/repositories
+```
+click on 'joindevops-actions->settings->actions--> runners->create self-hosted runner
+select linux and run below commands
+```
+
+* How to see execution or installation of server? 
+```
+sudo less /var/log/messages
+```
+
+# Download
+* Create a folder
+```
+$ mkdir actions-runner && cd actions-runner
+```
+
+* Download the latest runner package
+```
+$ curl -o actions-runner-linux-x64-2.335.1.tar.gz -L https://github.com/actions/runner/releases/download/v2.335.1/actions-runner-linux-x64-2.335.1.tar.gz
+```
+
+# Optional: Validate the hash
+```
+$ echo "4ef2f25285f0ae4477f1fe1e346db76d2f3ebf03824e2ddd1973a2819bf6c8cf  actions-runner-linux-x64-2.335.1.tar.gz" | shasum -a 256 -c
+```
+
+* Extract the installer
+```
+$ tar xzf ./actions-runner-linux-x64-2.335.1.tar.gz
+```
+
+
+# Configure
+* Create the runner and start the configuration experience
+```
+$ ./config.sh --url https://github.com/linga-devsecops-actions --token BJ2A47D7OB3UR37YPMQDIVDKIKR5I
+```
+
+# Last step, run it!
+```
+$ ./run.sh
+```
+# Using your self-hosted runner: Use this YAML in your workflow file for each job
+```
+runs-on: self-hosted
+```
+
+
+* We can replace ./run.sh with below service.
+
+* configuring runner manually using service.
+```
+sudo vim /etc/systemd/system/runner.service
+```
+```
+[Unit]
+Description=GitHub Actions Runner
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/actions-runner
+ExecStart=/home/ec2-user/actions-runner/run.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+```
+sudo systemctl enable runner
+```
+```
+sudo systemctl start runner
+```
+```
+sudo systemctl status runner
+```
+
+
+# Using your self-hosted runner
+```
+*  Use this YAML in your workflow file for each job
+runs-on: self-hosted
+```
+
+# Another option to enable:
+```
+github.com/orgs/joindevops-actions/repositories
+
+click on 'joindevops-actions->settings->actions--> runner group->default -> select 'allow public repositories`
+```
+
+
+
+**Runner configuration**
 * SSH to bastion host
 * run below command and configure the credentials.
 ```
@@ -64,7 +188,7 @@ aws configure
 ```
 * get the kubernetes config using below command
 ```
-aws eks update-kubeconfig --region us-east-1 --name expense-dev
+aws eks update-kubeconfig --region us-east-1 --name roboshop-dev
 ```
 * Now you should be able to connect K8 cluster
 ```
@@ -72,41 +196,50 @@ kubectl get nodes
 ```
 Create a namespace
 ```
-kubectl create namespace expense
+kubectl create namespace roboshop
 ```
-**RDS**:
-* Connect to RDS using bastion host.
-```
-mysql -h db-dev.lithesh.shop -u root -pExpenseApp1
-```
-* We are creating schema while creating RDS. But table should be created.
-* Refer backend.sql to create
-    * Table
-    * User
-    * flush privileges
+
+# Installing EBISCI drivers:
+# EBS Dynamic Provisioning  Steps:
+1. We need to install the EBS CSI drivers in EKS cluster.
+   kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.32"
+2. Your nodes should have access to connect with EBS volumes. Attach EBS CSI policy to the EC2 instance role.
+3. someone on behalf of you should create EBC Volume in AWS and equivalent PV in K8s automatically --> dynamic provisioning that one is Storage class.
+
+
 
 ```
-USE transactions;
+git clone https://github.com/linga-devsecops-actions/14.21.github-actions-roboshop-mysql.git
+cd 14.21.github-actions-roboshop-mysql/helm
+helm upgrade --install mysql . -n roboshop
+kubectl get pods -n roboshop
+
+git clone https://github.com/linga-devsecops-actions/14.22.github-actions-roboshop-mongodb.git
+cd 14.22.github-actions-roboshop-mongodb/helm
+helm upgrade --install mongodb . -n roboshop
+kubectl get pods -n roboshop
+
+git clone https://github.com/linga-devsecops-actions/14.23.github-actions-roboshop-redis.git
+cd 14.23.github-actions-roboshop-redis/helm
+helm upgrade --install redis . -n roboshop
+kubectl get pods -n roboshop
+
+git clone https://github.com/linga-devsecops-actions/14.24.github-actions-roboshop-rabbitmq.git
+cd 14.24.github-actions-roboshop-rabbitmq/helm
+helm upgrade --install rabbitmq . -n roboshop
+kubectl get pods -n roboshop
+
 ```
-```
-CREATE TABLE IF NOT EXISTS transactions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    amount INT,
-    description VARCHAR(255)
-);
-```
-```
-CREATE USER IF NOT EXISTS 'expense'@'%' IDENTIFIED BY 'ExpenseApp@1';
-```
-```
-GRANT ALL ON transactions.* TO 'expense'@'%';
-```
-```
-FLUSH PRIVILEGES;
-```
+
+
+* Update the targetgroup arn from roboshop-infra-dev to web helm charts.
+
+
+# For web:
+
+### Admin activities
 
 # Important Note: We no need to attach this this policy ‘ElasticLoadBalancingFullAccess’ to EKS Worker node's IAM role and execute it.  It will be attached automatically when eks nodes are created.
-
 
 **Ingress Controller**
 
@@ -116,7 +249,7 @@ Ref: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.8/
 
 # IAM OIDC Setup:
 ```
-eksctl utils associate-iam-oidc-provider --region us-east-1 --cluster expense-dev --approve
+eksctl utils associate-iam-oidc-provider --region us-east-1 --cluster roboshop-dev --approve
 ```
 
 # Create IAM Policy:
@@ -141,7 +274,7 @@ aws iam list-policies --query "Policies[?PolicyName=='AWSLoadBalancerControllerI
 
 ```
 eksctl create iamserviceaccount \
---cluster=expense-dev \
+--cluster=roboshop-dev \
 --namespace=kube-system \
 --name=aws-load-balancer-controller \
 --attach-policy-arn=arn:aws:iam::805778285734:policy/AWSLoadBalancerControllerIAMPolicy \
@@ -159,7 +292,7 @@ helm repo add eks https://aws.github.io/eks-charts
 * Helm install command for clusters with IRSA:
 
 ```
-helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=roboshop-dev
 ```
 
 * Option 1 (Recommended): Reuse Existing ServiceAccount
@@ -168,7 +301,7 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n ku
 ```
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
-  --set clusterName=expense-dev \
+  --set clusterName=roboshop-dev \
   --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller
 ```
@@ -179,56 +312,3 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
 ```
 kubectl get pods -n kube-system
 ```
-
-# Clone the expense app on Bastion server and run it.
-git clone https://github.com/rajalingarao/9.19.expense-terraform-aws-eks-TargetGroupBinding.git
-
-cd 9.19.expense-terraform-aws-eks-TargetGroupBinding
-
-cd 70-expense-k8s-TGB
-
-# Note: We will not create MySQL pod because it is already created on 20-db repository with password ExpenseApp1
-```
-kubectl apply -f namespace.yaml
-```
-```
-kubectl apply -f backend/manifest.yaml
-```
-```
-kubectl apply -f frontend/manifest.yaml
-```
-```
-kubectl apply -f debug/manifest.yaml
-```
-
-```
-kubens expense
-```
-
-```
-kubectl get pods
-```
-
-# Open browser and access the application:
-```
-http://expense-dev.lithesh.shop:80
-```
-
-# Trouble shoot using debug manifest:
-
-```
-mysql -h expense-dev.c0d4soae2u8h.us-east-1.rds.amazonaws.com -u root -pExpenseApp1
-```
-or
-
-```
-mysql -h db-dev.lithesh.shop -u root -pExpenseApp1
-```
-
-```
-USE transactions;
-```
-```
-select * from transactions;
-```
-

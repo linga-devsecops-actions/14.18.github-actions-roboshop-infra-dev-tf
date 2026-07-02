@@ -1,152 +1,190 @@
-#First creating security group with modules
-#Second attaching dependent ports to security group using aws Security group rule
-module "db" {
-#source ="../../5.12.terraform-aws-securitygroup"
-source ="git::https://github.com/Lingaiahthammisetti/5.12.terraform-aws-securitygroup.git?ref=main"
-project_name = var.project_name
-environment =  var.environment
-sg_description = "SG for DB MySQL Instances"
-vpc_id =  data.aws_ssm_parameter.vpc_id.value #We are getting the vpc_id from SSM parameter for DB Security group
-common_tags = var.common_tags
-sg_name = "db"
-}
-module "ingress" {
-#source ="../../5.12.terraform-aws-securitygroup"
-source ="git::https://github.com/Lingaiahthammisetti/5.12.terraform-aws-securitygroup.git?ref=main"
-project_name = var.project_name
-environment =  var.environment
-sg_description = "SG for Ingress Controller"
-vpc_id =  data.aws_ssm_parameter.vpc_id.value #We are getting the vpc_id from SSM parameter for Backend Security group
-common_tags = var.common_tags
-sg_name = "ingress"
-}
-module "cluster" {
-#source ="../../5.12.terraform-aws-securitygroup"
-source ="git::https://github.com/Lingaiahthammisetti/5.12.terraform-aws-securitygroup.git?ref=main"
-project_name = var.project_name
-environment =  var.environment
-sg_description = "SG for EKS Control Plane"
-vpc_id =  data.aws_ssm_parameter.vpc_id.value #We are getting the vpc_id from SSM parameter for Backend Security group
-common_tags = var.common_tags
-sg_name = "eks-control-plane"
-}
-module "node" {
-#source ="../../5.12.terraform-aws-securitygroup"
-source ="git::https://github.com/Lingaiahthammisetti/5.12.terraform-aws-securitygroup.git?ref=main"
-project_name = var.project_name
-environment =  var.environment
-sg_description = "SG for EKS node"
-vpc_id =  data.aws_ssm_parameter.vpc_id.value #We are getting the vpc_id from SSM parameter for Backend Security group
-common_tags = var.common_tags
-sg_name = "eks-node"
-}
-module "bastion" {
-#source ="../../5.12.terraform-aws-securitygroup"
-source ="git::https://github.com/Lingaiahthammisetti/5.12.terraform-aws-securitygroup.git?ref=main"
-project_name = var.project_name
-environment =  var.environment
-sg_description = "SG for Bastion Instances"
-vpc_id =  data.aws_ssm_parameter.vpc_id.value #We are getting the vpc_id from SSM parameter for Bastion Security group
-common_tags = var.common_tags
-sg_name = "bastion"
+module "mysql_sg" {
+    source = "git::https://github.com/Lingaiahthammisetti/13.4.terraform-aws-security-group-roboshop.git?ref=main"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "mysql"
+    #sg_description = "Created for MySQL instances in expense dev"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    common_tags = var.common_tags
 }
 
-# #Bastion can be accessed from public
-resource "aws_security_group_rule" "bastion_public" {
-    type = "ingress"
-    from_port = 22
-    to_port =  22
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    security_group_id = module.bastion.sg_id
+module "bastion_sg" {
+    source = "git::https://github.com/Lingaiahthammisetti/13.4.terraform-aws-security-group-roboshop.git?ref=main"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "bastion"
+    #sg_description = "Created for bastion instances in expense dev"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    common_tags = var.common_tags
 }
-#EKS Cluster can be accessed from bastion host
-resource "aws_security_group_rule" "cluster_bastion" {
-    type = "ingress"
-    from_port = 443
-    to_port =  443
-    protocol = "tcp"
-    source_security_group_id = module.bastion.sg_id # source is where you are getting traffic from.
-    security_group_id = module.cluster.sg_id  
-}
-# #EKS Cluster plane accepting all traffic from nodes
-resource "aws_security_group_rule" "cluster_node" {
-    type = "ingress"
-    from_port = 0
-    to_port =  65535
-    protocol = "-1" # All traffic
-    source_security_group_id = module.node.sg_id # source is where you are getting traffic from.
-    security_group_id = module.cluster.sg_id  
-}
-#EKS nodes accepting all traffic from control plane
-resource "aws_security_group_rule" "node_cluster" {
-    type = "ingress"
-    from_port = 0
-    to_port =  65535
-    protocol = "-1" # All traffic
-    source_security_group_id = module.cluster.sg_id 
-    security_group_id = module.node.sg_id  
-}
-# #EKS nodes should accept all traffic from nodes with in VPC CIDR range
-resource "aws_security_group_rule" "node_vpc" { #expense-vpc VPC CIDR
-    type = "ingress"
-    from_port = 0
-    to_port =  65535
-    protocol = "-1" # All traffic
-    cidr_blocks = ["10.0.0.0/16"]  #expense-vpc VPC CIDR
-    security_group_id = module.node.sg_id  
-}
-# #RDS accepting connections from bastion
-resource "aws_security_group_rule" "db_bastion" {
-    type = "ingress"
-    from_port = 3306
-    to_port =  3306
-    protocol = "tcp" # All traffic
-    source_security_group_id = module.bastion.sg_id # source is where you are getting traffic from.
-    security_group_id = module.db.sg_id  
-}
-# #DB should accept connections from EKS nodes
-resource "aws_security_group_rule" "db_node" {
-    type = "ingress"
-    from_port = 3306
-    to_port =  3306
-    protocol = "tcp" # All traffic
-    source_security_group_id = module.node.sg_id # source is where you are getting traffic from.
-    security_group_id = module.db.sg_id  
-}
-#Ingress ALB accepting traffic on 443
-resource "aws_security_group_rule" "ingress_public_https" {
-    type = "ingress"
-    from_port = 443
-    to_port =   443
-    protocol = "tcp" # All traffic
-    cidr_blocks = ["0.0.0.0/0"]
-    security_group_id = module.ingress.sg_id  
-}
-#Ingress ALB accepting traffic on 80
-resource "aws_security_group_rule" "ingress_public_http" {
-    type = "ingress"
-    from_port = 80
-    to_port =   80
-    protocol = "tcp" # All traffic
-    cidr_blocks = ["0.0.0.0/0"]
-    security_group_id = module.ingress.sg_id  
-}
-# #Node is accepting  traffic from ingress
-resource "aws_security_group_rule" "node_ingress" {
-    type = "ingress"
-    from_port = 30000
-    to_port =  32768
-    protocol = "tcp" #All traffic
-    source_security_group_id = module.ingress.sg_id # source is where you are getting traffic from.
-    security_group_id = module.node.sg_id  
-}
-#EKS Cluster accepting all traffic from jenkins agent
-# resource "aws_security_group_rule" "jenkins-agent_cluster" {
-#     type = "ingress"
-#     from_port = 0
-#     to_port =  65535
-#     protocol = "-1" # All traffic
-#     cidr_blocks = ["172.31.0.0/16"]
-#     security_group_id = module.cluster.sg_id  
+
+# ports 22, 443, 1194, 943 --> VPN ports
+# module "vpn_sg" {
+#     source = "git::https://github.com/DAWS-82S/terraform-aws-securitygroup.git?ref=main"
+#     project_name = var.project_name
+#     environment = var.environment
+#     sg_name = "vpn"
+#     sg_description = "Created for VPN instances in expense dev"
+#     vpc_id = data.aws_ssm_parameter.vpc_id.value
+#     common_tags = var.common_tags
 # }
+
+module "ingress_sg" {
+    source = "git::https://github.com/Lingaiahthammisetti/13.4.terraform-aws-security-group-roboshop.git?ref=main"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "ingress_sg"
+    #sg_description = "Created for backend ALB in expense dev"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    common_tags = var.common_tags
+}
+
+module "eks_control_plane_sg" {
+    source = "git::https://github.com/Lingaiahthammisetti/13.4.terraform-aws-security-group-roboshop.git?ref=main"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "eks-control-plane"
+    #sg_description = "Created for backend ALB in expense dev"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    common_tags = var.common_tags
+}
+
+module "eks_node_sg" {
+    source = "git::https://github.com/Lingaiahthammisetti/13.4.terraform-aws-security-group-roboshop.git?ref=main"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "eks-node"
+    #sg_description = "Created for backend ALB in expense dev"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    common_tags = var.common_tags
+}
+
+resource "aws_security_group_rule" "eks_control_plane_node" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  source_security_group_id       = module.eks_node_sg.id
+  security_group_id = module.eks_control_plane_sg.id
+}
+
+resource "aws_security_group_rule" "eks_node_eks_control_plane" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  source_security_group_id       = module.eks_control_plane_sg.id
+  security_group_id = module.eks_node_sg.id
+}
+
+# resource "aws_security_group_rule" "node_alb_ingress" {
+#   type              = "ingress"
+#   from_port         = 30000
+#   to_port           = 32767
+#   protocol          = "tcp"
+#   source_security_group_id       = module.alb_ingress_sg.sg_id
+#   security_group_id = module.eks_node_sg.sg_id
+# }
+
+resource "aws_security_group_rule" "node_vpc" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1" #this is huge mistake, if value is tcp, DNS will work in EKS. UDP traffic is required. So make it All traffic
+  cidr_blocks = ["10.0.0.0/16"] # our private IP address range
+  security_group_id = module.eks_node_sg.id
+}
+
+resource "aws_security_group_rule" "node_bastion" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  source_security_group_id = module.bastion_sg.id
+  security_group_id = module.eks_node_sg.id
+}
+
+# APP ALB accepting traffic from bastion
+resource "aws_security_group_rule" "alb_ingress_bastion" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  source_security_group_id       = module.bastion_sg.id
+  security_group_id = module.ingress_sg.id
+}
+
+resource "aws_security_group_rule" "alb_ingress_bastion_https" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  source_security_group_id       = module.bastion_sg.id
+  security_group_id = module.ingress_sg.id
+}
+
+resource "aws_security_group_rule" "alb_ingress_public_https" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = module.ingress_sg.id
+}
+
+# JDOPS-32, Bastion host should be accessed from office n/w
+resource "aws_security_group_rule" "bastion_public" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = module.bastion_sg.id
+}
+
+
+resource "aws_security_group_rule" "mysql_bastion" {
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  source_security_group_id = module.bastion_sg.id
+  security_group_id = module.mysql_sg.id
+}
+
+resource "aws_security_group_rule" "mysql_eks_node" {
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  source_security_group_id = module.eks_node_sg.id
+  security_group_id = module.mysql_sg.id
+}
+
+resource "aws_security_group_rule" "eks_control_plane_bastion" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  source_security_group_id = module.bastion_sg.id
+  security_group_id = module.eks_control_plane_sg.id
+}
+
+resource "aws_security_group_rule" "eks_node_alb_ingress" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  source_security_group_id = module.ingress_sg.id
+  security_group_id = module.eks_node_sg.id
+}
+
+
+resource "aws_security_group_rule" "eks_control_plane_github_runner" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["172.31.0.0/16"] # default VPC CIDR (or runner SG)
+  security_group_id = module.eks_control_plane_sg.id
+}
