@@ -207,6 +207,24 @@ kubectl create namespace roboshop
 3. someone on behalf of you should create EBC Volume in AWS and equivalent PV in K8s automatically --> dynamic provisioning that one is Storage class.
 
 
+# Checking db from shipping:
+```
+#mysql -h mysql.lithesh.shop -u shipping -pRoboShop@1
+
+#show databases;
+
+# use cities;
+
+# show tables;
+
+#exit
+
+#tail -f /var/log/messages
+
+#netstat -lntp
+```
+
+
 
 ```
 git clone https://github.com/linga-devsecops-actions/14.21.github-actions-roboshop-mysql.git
