@@ -208,6 +208,13 @@ kubectl create namespace roboshop
 
 
 ```
+sudo docker login -u lingadevops -p Welcome#100
+sudo docker build -t lingadevops/mysql:v1.6 .
+sudo docker push lingadevops/mysql:v1.6
+```
+
+# installing Roboshop Databases:
+```
 git clone https://github.com/linga-devsecops-actions/14.21.github-actions-roboshop-mysql.git
 cd 14.21.github-actions-roboshop-mysql/helm
 helm upgrade --install mysql . -n roboshop
