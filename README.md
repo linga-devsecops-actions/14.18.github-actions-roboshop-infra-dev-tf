@@ -207,30 +207,30 @@ kubectl create namespace roboshop
 3. someone on behalf of you should create EBC Volume in AWS and equivalent PV in K8s automatically --> dynamic provisioning that one is Storage class.
 
 
-# Checking db from shipping:
-```
-#mysql -h mysql.lithesh.shop -u shipping -pRoboShop@1
-
-#show databases;
-
-# use cities;
-
-# show tables;
-
-#exit
-
-#tail -f /var/log/messages
-
-#netstat -lntp
-```
-
-
-
 ```
 git clone https://github.com/linga-devsecops-actions/14.21.github-actions-roboshop-mysql.git
 cd 14.21.github-actions-roboshop-mysql/helm
 helm upgrade --install mysql . -n roboshop
 kubectl get pods -n roboshop
+
+# Checking db from mysql:
+```
+kubectl exec -it -n roboshop mysql-0 -- mysql -u shipping -pRoboShop@1
+
+kubectl exec -it -n roboshop mysql-1 -- mysql -u shipping -pRoboShop@1
+
+show databases;
+use cities;
+show tables;
+select count(*) from cities;
+select count(*) from codes;
+
+```
+
+How to check MySQL server logs:
+```
+tail -f /var/log/messages
+```
 
 git clone https://github.com/linga-devsecops-actions/14.22.github-actions-roboshop-mongodb.git
 cd 14.22.github-actions-roboshop-mongodb/helm
@@ -323,7 +323,6 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller
 ```
-
 
 # Validate:
 * check aws-load-balancer-controller is running in kube-system namespace.
