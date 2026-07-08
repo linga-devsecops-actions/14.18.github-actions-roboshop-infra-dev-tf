@@ -212,19 +212,16 @@ git clone https://github.com/linga-devsecops-actions/14.21.github-actions-robosh
 cd 14.21.github-actions-roboshop-mysql/helm
 helm upgrade --install mysql . -n roboshop
 kubectl get pods -n roboshop
-
+```
 # Checking db from mysql:
 ```
 kubectl exec -it -n roboshop mysql-0 -- mysql -u shipping -pRoboShop@1
-
 kubectl exec -it -n roboshop mysql-1 -- mysql -u shipping -pRoboShop@1
-
 show databases;
 use cities;
 show tables;
 select count(*) from cities;
 select count(*) from codes;
-
 ```
 
 How to check MySQL server logs:
@@ -232,6 +229,7 @@ How to check MySQL server logs:
 tail -f /var/log/messages
 ```
 
+```
 git clone https://github.com/linga-devsecops-actions/14.22.github-actions-roboshop-mongodb.git
 cd 14.22.github-actions-roboshop-mongodb/helm
 helm upgrade --install mongodb . -n roboshop
@@ -246,7 +244,6 @@ git clone https://github.com/linga-devsecops-actions/14.24.github-actions-robosh
 cd 14.24.github-actions-roboshop-rabbitmq/helm
 helm upgrade --install rabbitmq . -n roboshop
 kubectl get pods -n roboshop
-
 ```
 
 
